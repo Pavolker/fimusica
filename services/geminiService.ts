@@ -6,6 +6,13 @@ type ApiVersion = 'v1' | 'v1beta';
 
 const envVars = import.meta.env as Record<string, string | undefined>;
 const API_KEY = envVars.VITE_GEMINI_API_KEY || '';
+
+// Log environment information for debugging
+console.log("=== Environment Variables ===");
+console.log("VITE_GEMINI_API_KEY:", API_KEY ? "SET" : "NOT SET");
+console.log("All env vars:", envVars);
+console.log("=== End Environment ===");
+
 const PRIMARY_MODEL = envVars.VITE_GEMINI_MODEL || 'gemini-2.0-flash';
 
 // Ordered by priority; duplicates are removed later

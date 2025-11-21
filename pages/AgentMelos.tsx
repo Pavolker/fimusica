@@ -50,7 +50,16 @@ const AgentPV: React.FC = () => {
       
       if (error instanceof Error) {
         if (error.message === 'CHAVE_API_NAO_CONFIGURADA') {
-          errorContent = "⚙️ A chave de API do Gemini não foi configurada. Adicione sua chave no arquivo .env.local usando a variável VITE_GEMINI_API_KEY e reinicie o servidor de desenvolvimento para aplicar.";
+          errorContent = "⚙️ A chave de API do Gemini não foi configurada.\n\n" +
+            "Para uso em produção (Netlify):\n" +
+            "1) Acesse o painel do seu site no Netlify\n" +
+            "2) Vá em Settings → Build & deploy → Environment\n" +
+            "3) Adicione a variável VITE_GEMINI_API_KEY com sua chave\n" +
+            "4) Faça um novo deploy do site\n\n" +
+            "Para desenvolvimento local:\n" +
+            "1) Crie um arquivo .env.local na raiz do projeto\n" +
+            "2) Adicione: VITE_GEMINI_API_KEY=sua_chave_aqui\n" +
+            "3) Reinicie o servidor de desenvolvimento";
         } else if (error.message.includes('CHAVE_API_COMPROMETIDA')) {
           errorContent = (
             "🔒 Chave de API comprometida\n\n" +
