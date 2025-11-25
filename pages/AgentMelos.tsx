@@ -7,7 +7,7 @@ const AgentPV: React.FC = () => {
     {
       id: 'init',
       role: 'assistant',
-      content: 'Ola, sou o PV. Estou aqui para tirar suas dúvidas sobre música. É só perguntar'
+      content: 'Olá. Eu sou PV. Tenho acesso ao acervo de "Filosofia da Música". Consulte-me sobre as obras, as variáveis analíticas ou peça uma interpretação técnica no estilo de Paulo Volker.'
     }
   ]);
   const [inputValue, setInputValue] = useState('');
@@ -50,25 +50,7 @@ const AgentPV: React.FC = () => {
       
       if (error instanceof Error) {
         if (error.message === 'CHAVE_API_NAO_CONFIGURADA') {
-          errorContent = "⚙️ A chave de API do Gemini não foi configurada.\n\n" +
-            "Para uso em produção (Netlify):\n" +
-            "1) Acesse o painel do seu site no Netlify\n" +
-            "2) Vá em Settings → Build & deploy → Environment\n" +
-            "3) Adicione a variável VITE_GEMINI_API_KEY com sua chave\n" +
-            "4) Faça um novo deploy do site\n\n" +
-            "Para desenvolvimento local:\n" +
-            "1) Crie um arquivo .env.local na raiz do projeto\n" +
-            "2) Adicione: VITE_GEMINI_API_KEY=sua_chave_aqui\n" +
-            "3) Reinicie o servidor de desenvolvimento";
-        } else if (error.message.includes('CHAVE_API_COMPROMETIDA')) {
-          errorContent = (
-            "🔒 Chave de API comprometida\n\n" +
-            "A Google marcou sua chave como vazada/leaked.\n" +
-            "1) Gere uma nova chave em https://ai.google.dev/aut...\n" +
-            "2) Atualize .env.local com VITE_GEMINI_API_KEY=NOVACHAVE\n" +
-            "3) Pare e reinicie o servidor (npm run dev).\n\n" +
-            "Dica de segurança: evite expor chave no front em produção; use chamadas via backend quando publicar."
-          );
+          errorContent = "⚙️ A chave de API do Gemini não foi configurada. Por favor, adicione sua chave de API no arquivo .env.local com a variável VITE_GEMINI_API_KEY.";
         } else if (error.message.includes('QUOTA_EXCEEDED')) {
           errorContent = "⚠️ Limite de cota atingido\n\n" + error.message.replace('QUOTA_EXCEEDED: ', '') + "\n\nAcesse: https://console.cloud.google.com/billing para adicionar um método de pagamento.";
         } else if (error.message) {

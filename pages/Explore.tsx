@@ -95,8 +95,8 @@ const Explore: React.FC = () => {
 
         <div className="flex flex-col lg:flex-row gap-8">
 
-          {/* Table List */}
-          <div className={`flex-1 transition-all ${selectedSong ? 'lg:w-1/2' : 'w-full'}`}>
+          {/* Table List - Hidden on mobile when song is selected */}
+          <div className={`flex-1 transition-all ${selectedSong ? 'hidden lg:block lg:w-1/2' : 'w-full'}`}>
             <div className="bg-slate-800 shadow overflow-hidden sm:rounded-lg border border-slate-700">
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-slate-700">
@@ -151,8 +151,8 @@ const Explore: React.FC = () => {
 
           {/* Details Panel (Responsive Side/Bottom) */}
           {selectedSong && (
-            <div className="lg:w-1/2 animate-fade-in-up">
-              <div className="bg-slate-800 border border-amber-900/30 rounded-lg shadow-xl overflow-hidden sticky top-24 max-h-[calc(100vh-7rem)]">
+            <div className="w-full lg:w-1/2 animate-fade-in-up">
+              <div className="bg-slate-800 border border-amber-900/30 rounded-lg shadow-xl overflow-hidden lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)]">
 
                 {/* Header with YouTube Button - Always Visible */}
                 <div className="bg-slate-900/80 backdrop-blur-sm border-b border-slate-700 p-4 sticky top-0 z-10">
@@ -214,8 +214,21 @@ const Explore: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Mobile: Back to list button */}
+                <div className="lg:hidden p-4 bg-slate-900/50 border-b border-slate-700">
+                  <button
+                    onClick={() => setSelectedSong(null)}
+                    className="w-full flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-lg font-medium transition-colors text-sm border border-slate-600"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                    Voltar à lista de músicas
+                  </button>
+                </div>
+
                 {/* Scrollable Content */}
-                <div className="overflow-y-auto max-h-[calc(100vh-16rem)] p-6">
+                <div className="overflow-y-auto lg:max-h-[calc(100vh-16rem)] p-6">
 
                   {/* Metrics Grid */}
                   <div className="grid grid-cols-2 gap-4 mb-6 bg-slate-900/50 p-4 rounded-lg">
