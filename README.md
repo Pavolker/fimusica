@@ -18,27 +18,24 @@ Este aplicativo apresenta uma curadoria de **200 obras musicais** analisadas por
 
 ## 🚀 Executar Localmente
 
-**Pré-requisitos:** Node.js 18+
+**Pré-requisitos:** Node.js 20+
 
 1. Instalar dependências:
    ```bash
    npm install
    ```
 
-2. Configurar a chave API do Gemini em `.env.local`:
-   ```
-   VITE_GEMINI_API_KEY=sua_chave_aqui
-   # Opcional: escolha do modelo suportado. Padrão: gemini-2.5-flash-lite-preview-06-17
-   VITE_GEMINI_MODEL=gemini-2.5-flash-lite-preview-06-17
+2. Configurar a chave API do Gemini no servidor (Netlify):
+   - Em produção, adicione `GOOGLE_API_KEY` no painel do Netlify (Site > Site configuration > Environment variables).
+   - Em desenvolvimento local com funções, instale o Netlify CLI: `npm i -g netlify-cli` e use `netlify dev`.
+   - Obtenha sua chave em: https://aistudio.google.com/apikey
+
+3. Executar localmente com funções:
+   ```bash
+   netlify dev
    ```
    
-   > **Importante:** Use o prefixo `VITE_` para que o Vite exponha a variável no frontend.
-   > Obtenha sua chave em: https://aistudio.google.com/app/apikey
-
-3. Executar o app:
-   ```bash
-   npm run dev
-   ```
+   > Alternativa sem funções: `npm run dev` executa apenas o frontend. As chamadas a `/.netlify/functions/gemini` não estarão disponíveis.
 
 ## 🌐 Deploy no Netlify
 
@@ -49,7 +46,7 @@ Este aplicativo apresenta uma curadoria de **200 obras musicais** analisadas por
    - Comando de build: `npm run build`
    - Diretório de publicação: `dist`
 5. Adicione a variável de ambiente:
-   - `VITE_GEMINI_API_KEY` com sua chave da API do Google Gemini
+   - `GOOGLE_API_KEY` com sua chave da API do Google Gemini (servidor)
 6. Clique em "Deploy site"
 
 O site será automaticamente reconstruído a cada push no repositório.
@@ -79,7 +76,9 @@ O site será automaticamente reconstruído a cada push no repositório.
 │   ├── AgentMelos.tsx  # Chat com IA (Agente PV)
 │   └── Biblioteca.tsx  # Leitura dos capítulos
 ├── scripts/            # Scripts de processamento de dados
-└── services/           # Integração com Gemini AI
+├── netlify/functions/  # Funções serverless (Gemini)
+│   └── gemini.ts       # Endpoint que chama a API Gemini com chave segura
+└── services/           # Integração cliente com função serverless
 ```
 
 ## 🔄 Atualizando o Banco de Dados

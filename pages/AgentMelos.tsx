@@ -1,8 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { generatePVResponse } from '../services/geminiService';
 import { ChatMessage } from '../types';
+import { useAuth } from '../contexts/AuthContext';
+import LoginModal from '../components/LoginModal';
+import UpgradeModal from '../components/UpgradeModal';
 
 const AgentPV: React.FC = () => {
+  const { user } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'init',
@@ -12,6 +16,9 @@ const AgentPV: React.FC = () => {
   ]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -47,9 +54,18 @@ const AgentPV: React.FC = () => {
       setMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
       let errorContent = "Desculpe, ocorreu um erro ao processar sua mensagem. Por favor, tente novamente.";
-      
+
       if (error instanceof Error) {
-        if (error.message === 'CHAVE_API_NAO_CONFIGURADA') {
+        if (error.message === 'LIMIT_REACHED') {
+          // Trigger modal based on auth state
+          if (!user) {
+            setShowLoginModal(true);
+            errorContent = "🔒 Você atingiu o limite de perguntas para visitantes. Faça login para continuar.";
+          } else {
+            setShowUpgradeModal(true);
+            errorContent = "🔒 Você atingiu seu limite diário. Faça um upgrade para continuar.";
+          }
+        } else if (error.message === 'CHAVE_API_NAO_CONFIGURADA') {
           errorContent = "⚙️ A chave de API do Gemini não foi configurada. Por favor, adicione sua chave de API no arquivo .env.local com a variável VITE_GEMINI_API_KEY.";
         } else if (error.message.includes('QUOTA_EXCEEDED')) {
           errorContent = "⚠️ Limite de cota atingido\n\n" + error.message.replace('QUOTA_EXCEEDED: ', '') + "\n\nAcesse: https://console.cloud.google.com/billing para adicionar um método de pagamento.";
@@ -57,7 +73,7 @@ const AgentPV: React.FC = () => {
           errorContent = error.message;
         }
       }
-      
+
       const errorMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
@@ -80,13 +96,29 @@ const AgentPV: React.FC = () => {
     <div className="min-h-screen bg-slate-900 flex flex-col">
       {/* Header */}
       <div className="bg-slate-950 border-b border-slate-800 py-6">
-        <div className="max-w-4xl mx-auto px-4">
-          <h1 className="text-3xl font-serif font-bold text-white mb-2">
-            Agente PV
-          </h1>
-          <p className="text-slate-400">
-            Assistente de IA especializado em Filosofia da Música
-          </p>
+        <div className="max-w-4xl mx-auto px-4 flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-serif font-bold text-white mb-2">
+              Agente PV
+            </h1>
+            <p className="text-slate-400">
+              Assistente de IA especializado em Filosofia da Música
+            </p>
+          </div>
+          {!user && (
+            <button
+              onClick={() => setShowLoginModal(true)}
+              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-sm transition-colors"
+            >
+              Login
+            </button>
+          )}
+          {user && (
+            <div className="flex items-center gap-3">
+              <span className="text-slate-400 text-sm hidden sm:inline">Olá, {user.displayName || 'Usuário'}</span>
+              {/* Could add a logout button or profile menu here */}
+            </div>
+          )}
         </div>
       </div>
 
@@ -103,8 +135,8 @@ const AgentPV: React.FC = () => {
                 <div className="text-xs text-amber-500 font-bold uppercase mb-2 tracking-wider">{message.role === 'user' ? 'Você' : 'PV'}</div>
                 <div
                   className={`rounded-lg p-4 ${message.role === 'user'
-                      ? 'bg-amber-600 text-white'
-                      : 'bg-slate-800 text-slate-200 border border-slate-700'
+                    ? 'bg-amber-600 text-white'
+                    : 'bg-slate-800 text-slate-200 border border-slate-700'
                     }`}
                 >
                   <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
@@ -156,6 +188,9 @@ const AgentPV: React.FC = () => {
           </p>
         </div>
       </div>
+
+      <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} />
+      <UpgradeModal isOpen={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} />
     </div>
   );
 };

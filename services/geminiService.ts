@@ -6,24 +6,24 @@ let initialized = false;
 
 const initializeGemini = async () => {
   if (initialized) return;
-  
+
   try {
     // The API key is injected by Vite at build time
     const apiKey = (import.meta.env as any).VITE_GEMINI_API_KEY || '';
-    
-    console.log('Initializing Gemini with API key:', apiKey ? 'Present (' + apiKey.length + ' chars)' : 'Not set');
-    
+
+    console.log('Initializing Gemini with API key:', apiKey ? 'Present' : 'Not set');
+
     if (!apiKey || apiKey.trim() === '') {
       throw new Error('API_KEY_NOT_SET');
     }
-    
+
     // Dynamic import - the correct export is GoogleGenAI
     const { GoogleGenAI } = await import("@google/genai");
-    
+
     if (!GoogleGenAI) {
       throw new Error('GoogleGenAI class not found in module');
     }
-    
+
     genAI = new GoogleGenAI({ apiKey });
     initialized = true;
     console.log('Gemini model initialized successfully');
@@ -73,11 +73,23 @@ const retrieveContext = (query: string): string => {
   return contextString;
 };
 
+import { checkAndIncrementUsage } from './usageService';
+
+// ... existing imports ...
+
 export const generatePVResponse = async (userPrompt: string): Promise<string> => {
   try {
-    // Initialize Gemini if not already done
-    await initializeGemini();
-    
+    // Em desenvolvimento, pular verificação de limites para agilidade
+    const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+    if (!isDevelopment) {
+      // Check usage limits first (apenas em produção)
+      const usageCheck = await checkAndIncrementUsage();
+      if (!usageCheck.allowed) {
+        throw new Error('LIMIT_REACHED');
+      }
+    }
+
     // 1. Retrieval Step
     const context = retrieveContext(userPrompt);
 
@@ -112,40 +124,124 @@ export const generatePVResponse = async (userPrompt: string): Promise<string> =>
     `;
 
     // 3. Call Gemini API
-    if (!genAI) {
-      throw new Error("Gemini not initialized");
-    }
+    // Em desenvolvimento, usar API diretamente; em produção, usar função serverless
     
-    const result = await genAI.models.generateContent({
-      model: 'gemini-1.5-flash',
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            {
-              text: systemInstruction + '\n\nPERGUNTA DO USUÁRIO:\n' + userPrompt
+    if (isDevelopment) {
+      // Modo desenvolvimento: usar API diretamente no navegador
+      const browserApiKey = (import.meta.env as any).VITE_GEMINI_API_KEY || '';
+      if (!browserApiKey) {
+        throw { error: 'CHAVE_API_NAO_CONFIGURADA', message: 'API key não encontrada em .env.local' };
+      }
+      
+      try {
+        const { GoogleGenAI } = await import('@google/genai');
+        const ai = new GoogleGenAI({ apiKey: browserApiKey });
+        
+        // Lista de modelos para tentar (fallback progressivo)
+        // Voltando gemini-2.0-flash-exp para o topo pois é o único que funcionou no seu ambiente
+        const modelsToTry = ['gemini-2.0-flash-exp', 'gemini-1.5-flash', 'gemini-1.5-flash-8b'];
+        let response;
+        let lastError;
+
+        for (const model of modelsToTry) {
+          try {
+            response = await ai.models.generateContent({
+              model: model,
+              contents: [
+                {
+                  role: 'user',
+                  parts: [
+                    { text: systemInstruction + '\n\nPERGUNTA DO USUÁRIO:\n' + userPrompt }
+                  ]
+                }
+              ]
+            });
+            break; // Sucesso!
+          } catch (e: any) {
+            console.warn(`Falha com modelo ${model}:`, e);
+            lastError = e;
+            
+            // Se for erro de autenticação ou cota, não adianta tentar outros
+            const status = e?.status || e?.error?.code;
+            if (status === 401 || status === 429 || status === 403) {
+              throw e;
             }
-          ]
+            // Se for 404 (Not Found), tenta o próximo
+          }
         }
-      ]
-    });
-    
-    return result.text;
+
+        if (!response) {
+          throw lastError || new Error('Nenhum modelo disponível funcionou.');
+        }
+        
+        // Extrair texto corretamente da resposta
+        let textContent = '';
+        
+        if (typeof response.text === 'function') {
+           textContent = response.text();
+        } else if (typeof response.text === 'string') {
+           textContent = response.text;
+        } else if (response.candidates?.[0]?.content?.parts?.[0]?.text) {
+           textContent = response.candidates[0].content.parts[0].text;
+        } else {
+           textContent = JSON.stringify(response);
+        }
+        
+        return textContent;
+      } catch (devError) {
+        console.error('Erro na chamada direta da API:', devError);
+        throw devError;
+      }
+    } else {
+      // Modo produção: usar função serverless
+      const resp = await fetch('/.netlify/functions/gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: userPrompt, context: context })
+      });
+
+      const data = await resp.json();
+      if (!resp.ok || !data.ok) {
+        const code = data.error || 'ERRO_INESPERADO';
+        const msg = data.message || '';
+        throw new Error(`${code}: ${msg}`.trim());
+      }
+
+      return data.text;
+    }
 
   } catch (error) {
     console.error("Erro ao consultar PV:", error);
-    
-    if (error instanceof Error) {
-      if (error.message === 'API_KEY_NOT_SET') {
-        throw new Error('CHAVE_API_NAO_CONFIGURADA');
-      }
-      
-      // Check for quota errors
-      if (error.message.includes('429') || error.message.includes('RESOURCE_EXHAUSTED') || error.message.includes('quota')) {
-        throw new Error('QUOTA_EXCEEDED: Você atingiu o limite de requisições da API gratuita. Por favor, adicione um método de pagamento na sua conta Google Cloud ou aguarde o reset da cota.');
-      }
+
+    const status = (error as any)?.status as number | undefined;
+    const name = (error as any)?.name as string | undefined;
+    const message = error instanceof Error ? error.message : String(error);
+
+    // Erro de chave ausente
+    if (error instanceof Error && error.message === 'API_KEY_NOT_SET') {
+      throw new Error('CHAVE_API_NAO_CONFIGURADA');
     }
-    
-    throw new Error("Não foi possível gerar uma resposta. Verifique sua chave API ou cota de uso.");
+
+    // Mapeamento por status (ApiError do SDK)
+    if (status === 401) {
+      throw new Error('CHAVE_API_INVALIDA: A chave do Gemini é inválida ou foi revogada. Gere uma nova em https://aistudio.google.com/apikey e atualize VITE_GEMINI_API_KEY.');
+    }
+    if (status === 403) {
+      throw new Error('ACESSO_NEGADO: Verifique billing/projeto/ativação da API do Gemini. Permissões insuficientes ou billing inativo.');
+    }
+    if (status === 404) {
+      throw new Error('MODELO_INDISPONIVEL: O modelo solicitado não existe ou foi descontinuado. Tente "gemini-1.5-flash-002".');
+    }
+    if (status === 429 || (message.includes('429') || message.includes('RESOURCE_EXHAUSTED') || message.includes('quota'))) {
+      throw new Error('QUOTA_EXCEEDED: Você atingiu o limite de requisições da API gratuita. Adicione método de pagamento ou aguarde o reset da cota.');
+    }
+
+    // Erros de rede/CORS (ambiente web)
+    if (name === 'TypeError' && message.toLowerCase().includes('fetch')) {
+      throw new Error('ERRO_REDE: Falha de rede ou CORS ao acessar a API do Gemini. Verifique conectividade e configurações de domínio/headers.');
+    }
+
+    // Fallback genérico
+    throw new Error(`ERRO_INESPERADO: Não foi possível gerar uma resposta. Detalhes: ${message}`);
   }
 };

@@ -6,10 +6,17 @@ export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, process.cwd(), 'VITE_');
     console.log('Vite Config - Loaded env:', Object.keys(env));
     
-    return {
+  return {
       server: {
         port: 3000,
         host: '0.0.0.0',
+        proxy: {
+          '/.netlify/functions': {
+            target: 'http://localhost:8888',
+            changeOrigin: true,
+            secure: false,
+          }
+        }
       },
       plugins: [react()],
       define: {

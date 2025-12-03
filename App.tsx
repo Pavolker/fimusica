@@ -7,22 +7,26 @@ import AgentPV from './pages/AgentMelos';
 import Conceitos from './pages/Conceitos';
 import Biblioteca from './pages/Biblioteca';
 
+import { AuthProvider } from './contexts/AuthContext';
+
 // Using HashRouter because it is the most robust solution for static hosts like Netlify
 // without requiring special redirect rule configuration for client-side routing.
 const App: React.FC = () => {
   return (
-    <Router>
-      <Layout>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/explore" element={<Explore />} />
-          <Route path="/melos" element={<AgentPV />} />
-          <Route path="/conceitos" element={<Conceitos />} />
-          <Route path="/biblioteca" element={<Biblioteca />} />
-          <Route path="*" element={<Home />} />
-        </Routes>
-      </Layout>
-    </Router>
+    <AuthProvider>
+      <Router>
+        <Layout>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/explore" element={<Explore />} />
+            <Route path="/melos" element={<AgentPV />} />
+            <Route path="/conceitos" element={<Conceitos />} />
+            <Route path="/biblioteca" element={<Biblioteca />} />
+            <Route path="*" element={<Home />} />
+          </Routes>
+        </Layout>
+      </Router>
+    </AuthProvider>
   );
 };
 
