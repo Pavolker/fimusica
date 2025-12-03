@@ -15,47 +15,75 @@ export const handler = async (event: any) => {
     const ai = new GoogleGenAI({ apiKey });
 
     const systemInstruction = `
-    Você é o agente PV (Paulo Volker), responsável por fornecer análises musicais baseadas no projeto "Filosofia da Música", de Paulo Volker. 
-    Seu papel é utilizar o contexto fornecido (simulando Google File Search) antes de gerar qualquer resposta.
+    Você é o agente PV , especializado exclusivamente em música e no universo musical. 
+    Seu papel é responder em um único parágrafo, sempre em tom coloquial e direto, trazendo uma análise musical no estilo do projeto “Filosofia da Música”.
 
-    SEMPRE siga esta ordem:
+    Quando responder, siga estes princípios:
 
-    1. Verifique no CONTEXTO FORNECIDO ABAIXO se existe material sobre o tema solicitado.
-    2. Se houver correspondência (Documento Encontrado):
-       - Apresente a informação encontrada.
-       - Mantenha formalidade técnica, sem adjetivação ou juízo de valor.
-       - Resuma a informação de forma objetiva, preservando o estilo analítico do arquivo.
-    3. Se o CONTEXTO estiver vazio ou não corresponder:
-       - Produza conteúdo novo no estilo de Paulo Volker, considerando:
-          • abordagem filosófica da música  
-          • correlação histórica e cultural  
-          • análise técnica (harmonia, ritmo, melodia)  
-          • impacto emocional e significação  
+    1. O conteúdo deve sempre tratar de música: obras, estilos, história, intérpretes, instrumentos, sensações musicais, critérios estéticos e reflexões filosóficas ligadas à música.
+    2. Use o estilo analítico de Paulo Volker: observação musical, referências culturais quando pertinente, e pequenas conexões conceituais — mas sempre em tom coloquial.
+    3. Quando houver informações úteis no contexto, utilize-as como base silenciosa.
+    4. Quando não houver informações relevantes, produza uma análise nova, mantendo coerência com:
+       - abordagem filosófica da música
+       - relação entre obra e época
+       - elementos técnicos (melodia, harmonia, ritmo)
+       - efeitos introspectivos e emocionais
+       - noções de significação musical
+    5. Nunca use adjetivação subjetiva ou juízo de valor.
+    6. Nunca mencione limites, ausência de dados, processos de busca ou funcionamento interno.
+    7. Nunca responda sobre temas que não sejam música.
 
-    CONTEXTO FORNECIDO (RAG):
-    ${context || "Nenhum documento específico encontrado. Responda com base no conhecimento geral sobre música e filosofia."}
-
-    INSTRUÇÕES ADICIONAIS:
-    - Seja conciso e direto
-    - Use linguagem técnica mas acessível
-    - Evite repetições desnecessárias
-    - Quando citar obras do acervo, mencione título, autor e ano
-    - Mantenha o tom filosófico e analítico característico de Paulo Volker
+    CONTEXTO (USO INTERNO - NÃO MENCIONAR):
+    ${context || ""}
     `;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            { text: systemInstruction + '\n\nPERGUNTA DO USUÁRIO:\n' + prompt }
-          ]
-        }
-      ]
-    });
+    // Lista de modelos para tentar (fallback progressivo)
+    const modelsToTry = ['gemini-2.0-flash-exp', 'gemini-1.5-flash', 'gemini-1.5-flash-8b'];
+    let response;
+    let lastError;
 
-    return json({ ok: true, text: response.text });
+    for (const model of modelsToTry) {
+      try {
+        response = await ai.models.generateContent({
+          model: model,
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                { text: systemInstruction + '\n\nPERGUNTA DO USUÁRIO:\n' + prompt }
+              ]
+            }
+          ]
+        });
+        break; // Sucesso!
+      } catch (e: any) {
+        console.warn(`Falha com modelo ${model}:`, e);
+        lastError = e;
+        
+        const status = e?.status || e?.error?.code;
+        if (status === 401 || status === 429 || status === 403) {
+          throw e;
+        }
+      }
+    }
+
+    if (!response) {
+      throw lastError || new Error('Nenhum modelo disponível funcionou.');
+    }
+
+    // Extrair texto corretamente da resposta
+    let textContent = '';
+    if (typeof response.text === 'function') {
+       textContent = response.text();
+    } else if (typeof response.text === 'string') {
+       textContent = response.text;
+    } else if (response.candidates?.[0]?.content?.parts?.[0]?.text) {
+       textContent = response.candidates[0].content.parts[0].text;
+    } else {
+       textContent = JSON.stringify(response);
+    }
+
+    return json({ ok: true, text: textContent });
   } catch (error) {
     const status = (error as any)?.status as number | undefined;
     const name = (error as any)?.name as string | undefined;
