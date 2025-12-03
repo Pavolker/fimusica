@@ -84,7 +84,14 @@ export const generatePVResponse = async (userPrompt: string): Promise<string> =>
 
     if (!isDevelopment) {
       // Check usage limits first (apenas em produção)
-      const usageCheck = await checkAndIncrementUsage();
+      // Timeout de 2s para não travar o agente se o Firebase estiver lento/offline
+      const usagePromise = checkAndIncrementUsage();
+      const timeoutPromise = new Promise<{ allowed: boolean }>((resolve) => 
+        setTimeout(() => resolve({ allowed: true }), 2000)
+      );
+
+      const usageCheck = await Promise.race([usagePromise, timeoutPromise]);
+
       if (!usageCheck.allowed) {
         throw new Error('LIMIT_REACHED');
       }
